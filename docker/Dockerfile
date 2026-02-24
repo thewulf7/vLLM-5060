@@ -24,9 +24,9 @@ RUN echo 'tzdata tzdata/Areas select America' | debconf-set-selections \
     && echo 'tzdata tzdata/Zones/America select Los_Angeles' | debconf-set-selections \
     && apt-get update -y \
     && apt-get install -y --no-install-recommends \
-        ccache software-properties-common git curl sudo \
-        python3 python3-dev python3-venv python3-pip tzdata \
-        nodejs npm \
+    ccache software-properties-common git curl sudo \
+    python3 python3-dev python3-venv python3-pip tzdata \
+    nodejs npm \
     && ldconfig /usr/local/cuda-$(echo $CUDA_VERSION | cut -d. -f1,2)/compat/ \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && mv ~/.local/bin/uv /usr/local/bin/ \
@@ -59,7 +59,7 @@ ARG torch_cuda_arch_list='10.0+PTX 12.0+PTX'
 ENV TORCH_CUDA_ARCH_LIST=${torch_cuda_arch_list}
 
 # Override the arch list for flash-attn to reduce the binary size
-ARG vllm_fa_cmake_gpu_arches='80-real;90-real;100-real'
+ARG vllm_fa_cmake_gpu_arches='80-real;90-real;100-real;120-real'
 ENV VLLM_FA_CMAKE_GPU_ARCHES=${vllm_fa_cmake_gpu_arches}
 ENV FLASH_ATTN_CUDA_ARCHS=120
 
@@ -99,11 +99,11 @@ ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_LMCACHE=0.1.0
 RUN --mount=type=cache,target=/root/.cache/ccache,id=ccache \
     --mount=type=cache,target=/root/.cache/uv,id=uv-cache,sharing=locked \
     if [ "$VLLM_VERSION" = "nightly" ]; then \
-        uv pip install --system --prerelease=allow 'vllm[runai,tensorizer,flashinfer]' \
-            --extra-index-url https://wheels.vllm.ai/nightly \
-            --index-strategy unsafe-best-match ; \
+    uv pip install --system --prerelease=allow 'vllm[runai,tensorizer,flashinfer]' \
+    --extra-index-url https://wheels.vllm.ai/nightly \
+    --index-strategy unsafe-best-match ; \
     else \
-        uv pip install --system --prerelease=allow "vllm[runai,tensorizer,flashinfer]==${VLLM_VERSION}" ; \
+    uv pip install --system --prerelease=allow "vllm[runai,tensorizer,flashinfer]==${VLLM_VERSION}" ; \
     fi && \
     python3 -c 'import torch; print("TORCH=", torch.__version__)' && \
     python3 setup.py bdist_wheel --dist-dir=dist_lmcache && \
@@ -113,9 +113,14 @@ WORKDIR /workspace
 
 # Copy app files to workspace for easy access
 COPY app-*.py /workspace/
+COPY oc-vllm.sh /workspace/
+COPY run.sh /workspace/
 
 # Copy scripts directory for training and inference
 # COPY scripts/ /workspace/scripts/
+
+# Override the base image entrypoint to allow running custom commands e.g bash
+ENTRYPOINT []
 
 # ENTRYPOINT ["vllm", "serve"]
 
@@ -137,6 +142,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Copy scripts directory for training and inference
 # COPY scripts/ /workspace/scripts/
+COPY oc-vllm.sh /workspace/
+COPY run.sh /workspace/
 
 WORKDIR /workspace
+# Override the base image entrypoint to allow running custom commands e.g bash
+ENTRYPOINT []
 # ENTRYPOINT ["vllm", "serve"]
